@@ -1,0 +1,85 @@
+# Docker Compose configuration for Starline microservices
+version: '3'
+
+services:
+  # MySQL Database Service
+  # Handles data storage for both Starline and Starline Stock services
+  mysql:
+    image: mysql:5.7
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # Password from environment variable
+    volumes:
+      - mysql-data:/var/lib/mysql # Persistent database storage
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql # Database initialization script
+    ports:
+      - "3306:3306" # Expose MySQL port for external connections
+    networks:
+      - starline-network
+
+  # Starline Main Service
+  # Handles core business logic and user management
+  starline:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: starline
+    restart: always
+    user: "www-data:www-data" # Run as www-data user for security
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_STARLINE_DB: ${MYSQL_STARLINE_DB}
+      MYSQL_STARLINE_USER: ${MYSQL_STARLINE_USER}
+      MYSQL_STARLINE_PASSWORD: ${MYSQL_STARLINE_PASSWORD}
+      MYSQL_CHARSET: ${MYSQL_CHARSET}
+    volumes:
+      - ./Starline:/var/www/starline:rw # Mount Starline application code
+    networks:
+      - starline-network
+
+  # Starline Stock Service
+  # Handles inventory and stock management
+  starline-stock:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: starline-stock
+    restart: always
+    user: "www-data:www-data" # Run as www-data user for security
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_STOCK_DB: ${MYSQL_STOCK_DB}
+      MYSQL_STOCK_USER: ${MYSQL_STOCK_USER}
+      MYSQL_STOCK_PASSWORD: ${MYSQL_STOCK_PASSWORD}
+      MYSQL_CHARSET: ${MYSQL_CHARSET}
+    volumes:
+      - ./starline-stock:/var/www/starline-stock:rw # Mount Stock service code
+    networks:
+      - starline-network
+
+  # Nginx Web Server
+  # Handles HTTP requests and routes them to appropriate PHP-FPM containers
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80" # Expose HTTP port
+    volumes:
+      - ./docker/ngnix/conf.d:/etc/nginx/conf.d # Mount Nginx configuration
+    depends_on:
+      - starline
+      - starline-stock
+    networks:
+      - starline-network
+
+# Network Configuration
+networks:
+  starline-network:
+    external: true # Use external network for service communication
+
+# Volume Configuration
+volumes:
+  mysql-data: # Persistent volume for MySQL data
+  starline-code: # Volume for Starline application code
+  starline-stock-code: # Volume for Stock service code
