@@ -117,8 +117,12 @@ The project implements two microservices:
    ```
    > ⚠️ **Important**: For security in production environments, make sure to change default passwords and usernames.
 
-3. **Create Docker Network**
+3. **Docker Network Setup**
    ```bash
+   # Remove existing network (if exists)
+   docker network rm starline-network
+
+   # Create Docker Network
    docker network create starline-network
    ```
 
